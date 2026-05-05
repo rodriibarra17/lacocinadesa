@@ -29,9 +29,22 @@ function App() {
       favicon.setAttribute("href", "/images/logo.png");
       favicon.setAttribute("type", "image/png");
     }
-    const onPopState = () => setRoute(window.location.pathname);
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
+    window.onpopstate = () => setRoute(window.location.pathname);
+    return () => {
+      window.onpopstate = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleHiddenAdminShortcut(event) {
+      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        navigate("/admin");
+      }
+    }
+
+    window.addEventListener("keydown", handleHiddenAdminShortcut);
+    return () => window.removeEventListener("keydown", handleHiddenAdminShortcut);
   }, []);
 
   useEffect(() => localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products)), [products]);
@@ -135,9 +148,24 @@ function Logo({ footer = false }) {
 }
 
 function Navbar({ navigate, cartCount }) {
+  const [logoClicks, setLogoClicks] = useState(0);
+
+  function handleBrandClick() {
+    setLogoClicks((current) => {
+      const next = current + 1;
+      if (next >= 5) {
+        navigate("/admin");
+        return 0;
+      }
+      window.setTimeout(() => setLogoClicks(0), 1200);
+      navigate("/");
+      return next;
+    });
+  }
+
   return (
     <header className="navbar">
-      <button className="brand-button" onClick={() => navigate("/")}>
+      <button className="brand-button" onClick={handleBrandClick}>
         <Logo />
         <span className="brand-stack">
           <small>La cocina de Sa</small>
