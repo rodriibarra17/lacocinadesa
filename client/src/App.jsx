@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { brand, defaultProducts, defaultRecipes, defaultSiteContent } from "./content";
+import supabase from "./supabase";
 import { isStorageConfigured, uploadImageToStorage } from "./supabaseStorage";
 
 const ADMIN_USER = "Sabri";
 const ADMIN_PASSWORD = "Copito2026";
-const PRODUCTS_KEY = "sa_products";
 const RECIPES_KEY = "sa_recipes";
 const CONTENT_KEY = "sa_site_content";
 const BRAND_KEY = "sa_brand_settings";
@@ -12,7 +12,7 @@ const ADMIN_KEY = "sa_admin_logged";
 
 function App() {
   const [route, setRoute] = useState(window.location.pathname);
-  const [products, setProducts] = useState(() => normalizeProducts(loadStored(PRODUCTS_KEY, defaultProducts)));
+  const [products, setProducts] = useState(() => normalizeProducts(defaultProducts));
   const [recipes, setRecipes] = useState(() => normalizeRecipes(loadStored(RECIPES_KEY, defaultRecipes)));
   const [siteContent, setSiteContent] = useState(() => ({ ...defaultSiteContent, ...loadStoredObject(CONTENT_KEY) }));
   const [brandSettings, setBrandSettings] = useState(() => ({ ...brand, ...loadStoredObject(BRAND_KEY) }));
@@ -20,6 +20,7 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [toast, setToast] = useState("");
+  const [productStatus, setProductStatus] = useState("Cargando productos desde Supabase...");
   const [isAdminLogged, setIsAdminLogged] = useState(localStorage.getItem(ADMIN_KEY) === "true");
 
   useEffect(() => {
@@ -47,7 +48,9 @@ function App() {
     return () => window.removeEventListener("keydown", handleHiddenAdminShortcut);
   }, []);
 
-  useEffect(() => localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products)), [products]);
+  useEffect(() => {
+    fetchProducts();
+  }, []);
   useEffect(() => localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes)), [recipes]);
   useEffect(() => localStorage.setItem(CONTENT_KEY, JSON.stringify(siteContent)), [siteContent]);
   useEffect(() => localStorage.setItem(BRAND_KEY, JSON.stringify(brandSettings)), [brandSettings]);
@@ -84,6 +87,92 @@ function App() {
     setCart((current) => current.filter((item) => item.id !== id));
   }
 
+  async function fetchProducts() {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const nextProducts = normalizeProducts((data || []).map(mapSupabaseProduct));
+      setProducts(nextProducts.length ? nextProducts : defaultProducts);
+      setProductStatus(nextProducts.length ? "Productos sincronizados con Supabase." : "No hay productos en Supabase. Se muestran productos de ejemplo.");
+    } catch (error) {
+      setProductStatus(`No se pudieron cargar productos desde Supabase: ${error.message}`);
+      setProducts(defaultProducts);
+    }
+  }
+
+  async function saveProduct(product, editingProductId) {
+    try {
+      const payload = productToSupabase(product);
+      let response;
+
+      if (editingProductId) {
+        response = await supabase
+          .from("products")
+          .update(payload)
+          .eq("id", editingProductId)
+          .select()
+          .single();
+      } else {
+        response = await supabase
+          .from("products")
+          .insert([payload])
+          .select()
+          .single();
+      }
+
+      if (response.error && payload.favorite !== undefined) {
+        const fallbackPayload = productToSupabase(product, false);
+        response = editingProductId
+          ? await supabase.from("products").update(fallbackPayload).eq("id", editingProductId).select().single()
+          : await supabase.from("products").insert([fallbackPayload]).select().single();
+      }
+
+      if (response.error) throw response.error;
+
+      const savedProduct = normalizeProducts([mapSupabaseProduct(response.data)])[0];
+      setProducts((current) => editingProductId
+        ? current.map((item) => item.id === editingProductId ? savedProduct : item)
+        : [savedProduct, ...current.filter((item) => item.id !== savedProduct.id && !String(item.id).startsWith("product-"))]);
+      setProductStatus("Producto guardado en Supabase.");
+      return true;
+    } catch (error) {
+      setProductStatus(`No se pudo guardar el producto: ${error.message}`);
+      return false;
+    }
+  }
+
+  async function deleteProduct(id) {
+    try {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+      setProducts((current) => current.filter((product) => product.id !== id));
+      setProductStatus("Producto eliminado de Supabase.");
+    } catch (error) {
+      setProductStatus(`No se pudo eliminar el producto: ${error.message}`);
+    }
+  }
+
+  async function toggleFavorite(id) {
+    const product = products.find((item) => item.id === id);
+    if (!product) return;
+
+    const nextFavorite = !product.favorite;
+    setProducts((current) => current.map((item) => item.id === id ? { ...item, favorite: nextFavorite } : item));
+
+    const { error } = await supabase.from("products").update({ favorite: nextFavorite }).eq("id", id);
+    if (error) {
+      setProducts((current) => current.map((item) => item.id === id ? { ...item, favorite: product.favorite } : item));
+      setProductStatus("La tabla products no tiene columna favorite o no se pudo actualizar.");
+      return;
+    }
+    setProductStatus("Favorito actualizado en Supabase.");
+  }
+
   if (route === "/admin") {
     return (
       <HiddenAdmin
@@ -91,7 +180,10 @@ function App() {
         setIsLogged={setIsAdminLogged}
         navigate={navigate}
         products={products}
-        setProducts={setProducts}
+        productStatus={productStatus}
+        onSaveProduct={saveProduct}
+        onDeleteProduct={deleteProduct}
+        onToggleFavorite={toggleFavorite}
         recipes={recipes}
         setRecipes={setRecipes}
         siteContent={siteContent}
@@ -458,7 +550,7 @@ function SocialIcon({ href, src, label }) {
   );
 }
 
-function HiddenAdmin({ isLogged, setIsLogged, navigate, products, setProducts, recipes, setRecipes, siteContent, setSiteContent, brandSettings, setBrandSettings }) {
+function HiddenAdmin({ isLogged, setIsLogged, navigate, products, productStatus, onSaveProduct, onDeleteProduct, onToggleFavorite, recipes, setRecipes, siteContent, setSiteContent, brandSettings, setBrandSettings }) {
   if (!isLogged) {
     return <AdminLogin setIsLogged={setIsLogged} />;
   }
@@ -478,7 +570,10 @@ function HiddenAdmin({ isLogged, setIsLogged, navigate, products, setProducts, r
       <section>
         <AdminEditor
           products={products}
-          setProducts={setProducts}
+          productStatus={productStatus}
+          onSaveProduct={onSaveProduct}
+          onDeleteProduct={onDeleteProduct}
+          onToggleFavorite={onToggleFavorite}
           recipes={recipes}
           setRecipes={setRecipes}
           siteContent={siteContent}
@@ -519,7 +614,7 @@ function AdminLogin({ setIsLogged }) {
   );
 }
 
-function AdminEditor({ products, setProducts, recipes, setRecipes, siteContent, setSiteContent, brandSettings, setBrandSettings }) {
+function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, onToggleFavorite, recipes, setRecipes, siteContent, setSiteContent, brandSettings, setBrandSettings }) {
   const emptyProduct = { name: "", price: "", description: "", image_url: "", favorite: false };
   const emptyRecipe = { title: "", content: "", ingredients: "", steps: "", image_url: "" };
   const [productForm, setProductForm] = useState(emptyProduct);
@@ -527,19 +622,18 @@ function AdminEditor({ products, setProducts, recipes, setRecipes, siteContent, 
   const [editingProductId, setEditingProductId] = useState("");
   const [editingRecipeId, setEditingRecipeId] = useState("");
 
-  function saveProduct(event) {
+  async function saveProduct(event) {
     event.preventDefault();
     const payload = {
       ...productForm,
-      id: editingProductId || crypto.randomUUID(),
       price: Number(productForm.price || 0),
       favorite: Boolean(productForm.favorite)
     };
-    setProducts(editingProductId
-      ? products.map((product) => product.id === editingProductId ? payload : product)
-      : [payload, ...products]);
-    setEditingProductId("");
-    setProductForm(emptyProduct);
+    const saved = await onSaveProduct(payload, editingProductId);
+    if (saved) {
+      setEditingProductId("");
+      setProductForm(emptyProduct);
+    }
   }
 
   function editProduct(product) {
@@ -549,12 +643,12 @@ function AdminEditor({ products, setProducts, recipes, setRecipes, siteContent, 
 
   function deleteProduct(id) {
     if (window.confirm("Eliminar producto?")) {
-      setProducts(products.filter((product) => product.id !== id));
+      onDeleteProduct(id);
     }
   }
 
   function toggleFavorite(id) {
-    setProducts(products.map((product) => product.id === id ? { ...product, favorite: !product.favorite } : product));
+    onToggleFavorite(id);
   }
 
   function saveRecipe(event) {
@@ -591,6 +685,7 @@ function AdminEditor({ products, setProducts, recipes, setRecipes, siteContent, 
     <div className="admin-editor">
       <section id="admin-products" className="admin-card">
         <h2>Productos</h2>
+        {productStatus && <p className="admin-help">{productStatus}</p>}
         <form onSubmit={saveProduct}>
           <label>Nombre<input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} required /></label>
           <label>Precio<input value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} type="number" required /></label>
@@ -735,6 +830,32 @@ function SectionTitle({ eyebrow, title }) {
       <h2>{title}</h2>
     </div>
   );
+}
+
+function mapSupabaseProduct(product) {
+  return {
+    id: product.id,
+    name: product.name || "",
+    price: Number(product.price || 0),
+    description: product.description || "",
+    image_url: product.image || product.image_url || "",
+    favorite: Boolean(product.favorite)
+  };
+}
+
+function productToSupabase(product, includeFavorite = true) {
+  const payload = {
+    name: product.name,
+    price: Number(product.price || 0),
+    description: product.description,
+    image: product.image_url
+  };
+
+  if (includeFavorite) {
+    payload.favorite = Boolean(product.favorite);
+  }
+
+  return payload;
 }
 
 function buildWhatsAppLink(cart, whatsapp) {
