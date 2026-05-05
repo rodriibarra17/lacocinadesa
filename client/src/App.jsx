@@ -621,9 +621,15 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
   const [recipeForm, setRecipeForm] = useState(emptyRecipe);
   const [editingProductId, setEditingProductId] = useState("");
   const [editingRecipeId, setEditingRecipeId] = useState("");
+  const [productFormError, setProductFormError] = useState("");
 
   async function saveProduct(event) {
     event.preventDefault();
+    if (!productForm.name || !productForm.price || !productForm.image_url) {
+      setProductFormError("Completa nombre, precio y sube una imagen antes de guardar.");
+      return;
+    }
+    setProductFormError("");
     const payload = {
       ...productForm,
       price: Number(productForm.price || 0),
@@ -633,6 +639,7 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
     if (saved) {
       setEditingProductId("");
       setProductForm(emptyProduct);
+      setProductFormError("");
     }
   }
 
@@ -692,6 +699,7 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
           <label>Descripcion<textarea value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} required /></label>
           <ImageInput label="Imagen" value={productForm.image_url} onChange={(image_url) => setProductForm({ ...productForm, image_url })} />
           <label className="check-line"><input type="checkbox" checked={productForm.favorite} onChange={(e) => setProductForm({ ...productForm, favorite: e.target.checked })} /> Marcar como favorito</label>
+          {productFormError && <p className="error">{productFormError}</p>}
           <button className="primary" type="submit">{editingProductId ? "Guardar producto" : "Crear producto"}</button>
         </form>
         <AdminList
@@ -792,7 +800,7 @@ function ImageInput({ label, value, onChange }) {
 
   return (
     <div className="image-input">
-      <label>{label} URL<input value={value} onChange={(e) => onChange(e.target.value)} required /></label>
+      <label>{label} URL<input value={value} onChange={(e) => onChange(e.target.value)} readOnly placeholder="Se genera automaticamente al subir la imagen" /></label>
       <label className="upload-box">
         {uploading ? "Subiendo..." : "Subir imagen"}
         <input type="file" accept="image/*" onChange={handleFile} />
