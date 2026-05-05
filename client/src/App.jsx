@@ -100,6 +100,7 @@ function App() {
       setProducts(nextProducts.length ? nextProducts : defaultProducts);
       setProductStatus(nextProducts.length ? "Productos sincronizados con Supabase." : "No hay productos en Supabase. Se muestran productos de ejemplo.");
     } catch (error) {
+      console.error("SUPABASE ERROR:", error);
       setProductStatus(`No se pudieron cargar productos desde Supabase: ${error.message}`);
       setProducts(defaultProducts);
     }
@@ -141,6 +142,7 @@ function App() {
       setProductStatus("Producto guardado en Supabase.");
       return true;
     } catch (error) {
+      console.error("SUPABASE ERROR:", error);
       setProductStatus(`No se pudo guardar el producto: ${error.message}`);
       return false;
     }
@@ -153,6 +155,7 @@ function App() {
       setProducts((current) => current.filter((product) => product.id !== id));
       setProductStatus("Producto eliminado de Supabase.");
     } catch (error) {
+      console.error("SUPABASE ERROR:", error);
       setProductStatus(`No se pudo eliminar el producto: ${error.message}`);
     }
   }
@@ -166,6 +169,7 @@ function App() {
 
     const { error } = await supabase.from("products").update({ favorite: nextFavorite }).eq("id", id);
     if (error) {
+      console.error("SUPABASE ERROR:", error);
       setProducts((current) => current.map((item) => item.id === id ? { ...item, favorite: product.favorite } : item));
       setProductStatus("La tabla products no tiene columna favorite o no se pudo actualizar.");
       return;

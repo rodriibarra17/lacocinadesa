@@ -22,7 +22,10 @@ export async function uploadImageToStorage(file) {
     upsert: false
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error("SUPABASE ERROR:", error);
+    throw error;
+  }
 
   const { data } = supabase.storage.from("images").getPublicUrl(path);
   return data.publicUrl;
