@@ -23,7 +23,7 @@ body {
 }
 img { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 
 .navbar {
@@ -93,15 +93,26 @@ button { cursor: pointer; }
   font-weight: 800;
 }
 
-.navbar nav a {
+.navbar nav a,
+.navbar nav button {
   padding: 8px 0;
+  color: var(--cocoa);
+  background: transparent;
+  border: 0;
   border-bottom: 2px solid transparent;
+  font-weight: 800;
   transition: color 180ms ease, border-color 180ms ease;
 }
 
-.navbar nav a:hover {
+.navbar nav a:hover,
+.navbar nav button:hover,
+.navbar nav button.nav-active {
   color: var(--berry);
   border-color: var(--rose);
+}
+
+.navbar nav button.nav-active {
+  font-weight: 900;
 }
 
 .cart-pill,
@@ -254,6 +265,19 @@ button { cursor: pointer; }
   box-shadow: var(--shadow);
 }
 
+.product-card {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(189, 150, 88, 0.34);
+  box-shadow: 0 24px 60px rgba(70, 48, 44, 0.18);
+}
+
 .favorite-badge {
   position: absolute;
   top: 12px;
@@ -269,7 +293,7 @@ button { cursor: pointer; }
 
 .product-image-button {
   width: 100%;
-  aspect-ratio: 4 / 5;
+  height: 280px;
   padding: 0;
   border: 0;
   overflow: hidden;
@@ -292,9 +316,28 @@ button { cursor: pointer; }
   padding: 18px;
 }
 
+.product-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
 .product-copy span {
   color: var(--rose);
   font-size: 13px;
+  font-weight: 900;
+}
+
+.product-copy em {
+  display: inline-flex;
+  width: max-content;
+  margin-bottom: 8px;
+  padding: 5px 9px;
+  color: var(--berry);
+  background: #fff2ef;
+  border-radius: 999px;
+  font-size: 12px;
+  font-style: normal;
   font-weight: 900;
 }
 
@@ -317,7 +360,7 @@ button { cursor: pointer; }
 
 .add-button {
   width: 100%;
-  margin-top: 12px;
+  margin-top: auto;
 }
 
 .about {
@@ -352,33 +395,19 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 
-.carousel-shell {
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 8px 0 26px;
-  scrollbar-color: var(--rose) transparent;
+.products-grid {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.5vw, 28px);
+  animation: fadeIn 220ms ease both;
 }
 
-.carousel-track {
-  display: flex;
-  width: max-content;
-  gap: 20px;
-  animation: carouselMove 38s linear infinite;
-}
-
-.carousel-shell:hover .carousel-track {
-  animation-play-state: paused;
-}
-
-.carousel-card {
-  width: clamp(250px, 26vw, 330px);
-  flex: 0 0 auto;
-}
-
-@keyframes carouselMove {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+.product-empty {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  text-align: center;
 }
 
 .recipes-band {
@@ -771,7 +800,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 13px 14px;
   color: var(--cocoa);
@@ -942,6 +972,7 @@ textarea {
     padding-bottom: 4px;
   }
   .featured-grid,
+  .products-grid,
   .about,
   .social-section,
   .admin-layout,

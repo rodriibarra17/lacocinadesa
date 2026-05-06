@@ -71,6 +71,7 @@ function App() {
   function navigate(path) {
     window.history.pushState({}, "", path);
     setRoute(path);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function addToCart(product) {
@@ -212,23 +213,25 @@ function App() {
   const visibleProducts = !routeCategory
     ? products
     : products.filter((product) => product.category === routeCategory);
-  const productsTitle = routeCategory ? `${siteContent.productsTitle}: ${routeCategory}` : siteContent.productsTitle;
+  const productsTitle = routeCategory ? routeCategory : "Productos";
 
   return (
     <>
-      <Navbar navigate={navigate} cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
+      <Navbar
+        navigate={navigate}
+        categories={productCategories}
+        selectedCategory={selectedCategory}
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+      />
       <main>
         <Hero content={siteContent} />
         <Featured products={favoriteProducts.length ? favoriteProducts : products.slice(0, 3)} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
         <About content={siteContent} />
         <ProductsCarousel
           products={visibleProducts}
-          categories={productCategories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={(category) => navigate(category === "Todos" ? "/" : `/${categoryToSlug(category)}`)}
           onAdd={addToCart}
           onSelect={setSelectedProduct}
-          content={{ ...siteContent, productsTitle }}
+          content={{ ...siteContent, productsTitle, productsEyebrow: "Pasteleria artesanal" }}
         />
         <Recipes recipes={recipes} content={siteContent} onSelect={setSelectedRecipe} />
         <SocialSection content={siteContent} brandSettings={brandSettings} />
@@ -265,7 +268,7 @@ function Logo({ footer = false }) {
   );
 }
 
-function Navbar({ navigate, cartCount }) {
+function Navbar({ navigate, categories, selectedCategory, cartCount }) {
   const [logoClicks, setLogoClicks] = useState(0);
 
   function handleBrandClick() {
@@ -290,10 +293,17 @@ function Navbar({ navigate, cartCount }) {
         </span>
       </button>
       <nav>
-        <a href="#home">Home</a>
-        <a href="#sobre-mi">Sobre mi</a>
-        <a href="#productos">Productos</a>
-        <a href="#recetas">Recetas</a>
+        <button className={selectedCategory === "Todos" ? "nav-active" : ""} onClick={() => navigate("/")} type="button">Home</button>
+        {categories.map((category) => (
+          <button
+            key={category}
+            className={selectedCategory === category ? "nav-active" : ""}
+            onClick={() => navigate(`/${categoryToSlug(category)}`)}
+            type="button"
+          >
+            {category}
+          </button>
+        ))}
         <a href="#redes">Redes</a>
       </nav>
       <a className="cart-pill" href="#pedido">Carrito {cartCount > 0 ? `(${cartCount})` : ""}</a>
@@ -347,42 +357,26 @@ function About({ content }) {
   );
 }
 
-function ProductsCarousel({ products, categories, selectedCategory, onCategoryChange, onAdd, onSelect, content }) {
-  const carouselProducts = [...products, ...products];
-
+function ProductsCarousel({ products, onAdd, onSelect, content }) {
   return (
     <section id="productos" className="section products-section">
       <SectionTitle eyebrow={content.productsEyebrow} title={content.productsTitle} />
-      <div className="category-filter" aria-label="Filtrar productos por categoria">
-        {["Todos", ...categories].map((category) => (
-          <button
-            key={category}
-            className={selectedCategory === category ? "active" : ""}
-            onClick={() => onCategoryChange(category)}
-            type="button"
-          >
-            {category}
-          </button>
-        ))}
-      </div>
       {products.length === 0 ? (
         <p className="empty-cart product-empty">No hay productos en esta categoria.</p>
       ) : (
-        <div className="carousel-shell" aria-label="Carrusel de productos">
-          <div className="carousel-track">
-            {carouselProducts.map((product, index) => (
-              <ProductCard key={`${product.id}-${index}`} product={product} onAdd={onAdd} onSelect={onSelect} carousel />
-            ))}
-          </div>
+        <div className="products-grid">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} onAdd={onAdd} onSelect={onSelect} />
+          ))}
         </div>
       )}
     </section>
   );
 }
 
-function ProductCard({ product, onAdd, onSelect, carousel = false }) {
+function ProductCard({ product, onAdd, onSelect }) {
   return (
-    <article className={carousel ? "product-card carousel-card" : "product-card"}>
+    <article className="product-card">
       {product.favorite && <span className="favorite-badge">Favorito</span>}
       <button className="product-image-button" onClick={() => onSelect(product)} aria-label={`Ver ${product.name}`}>
         <img src={product.image_url} alt={product.name} loading="lazy" />
