@@ -206,7 +206,8 @@ function App() {
     );
   }
 
-  const favoriteProducts = products.filter((product) => product.favorite).slice(0, 3);
+  const favoriteProducts = products.filter((product) => product.favorite).slice(0, 6);
+  const homeProducts = favoriteProducts.length ? favoriteProducts : products.slice(0, 6);
   const productCategories = getProductCategories(products);
   const page = getPageFromPath(route);
   const routeCategory = getProductCategoryFromPath(route);
@@ -227,7 +228,7 @@ function App() {
         {page === "home" && (
           <>
             <Hero content={siteContent} navigate={navigate} />
-            <Featured products={favoriteProducts.length ? favoriteProducts : products.slice(0, 3)} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
+            <Featured products={homeProducts} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
             <About content={siteContent} />
             <SocialSection content={siteContent} brandSettings={brandSettings} />
           </>
@@ -345,12 +346,41 @@ function Hero({ content, navigate }) {
 }
 
 function Featured({ products, onAdd, onSelect, content }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (products.length <= 1) return undefined;
+    const interval = window.setInterval(() => {
+      setIndex((current) => (current + 1) % products.length);
+    }, 3500);
+    return () => window.clearInterval(interval);
+  }, [products.length]);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [products]);
+
   return (
     <section className="section featured">
       <SectionTitle eyebrow={content.featuredEyebrow} title={content.featuredTitle} />
-      <div className="featured-grid">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} onAdd={onAdd} onSelect={onSelect} />
+      <div className="featured-carousel" aria-label="Productos destacados">
+        <div className="featured-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+          {products.map((product) => (
+            <div className="featured-slide" key={product.id}>
+              <ProductCard product={product} onAdd={onAdd} onSelect={onSelect} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="featured-dots" aria-label="Controles del carrusel">
+        {products.map((product, dotIndex) => (
+          <button
+            key={product.id}
+            className={dotIndex === index ? "active" : ""}
+            onClick={() => setIndex(dotIndex)}
+            type="button"
+            aria-label={`Ver producto destacado ${dotIndex + 1}`}
+          />
         ))}
       </div>
     </section>

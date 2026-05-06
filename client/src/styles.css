@@ -308,6 +308,46 @@ button { cursor: pointer; }
   gap: 22px;
 }
 
+.featured-carousel {
+  width: min(390px, 100%);
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.featured-track {
+  display: flex;
+  transition: transform 500ms ease;
+}
+
+.featured-slide {
+  min-width: 100%;
+  padding: 0 4px;
+}
+
+.featured-dots {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 18px;
+}
+
+.featured-dots button {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  background: rgba(121, 56, 68, 0.22);
+  border: 0;
+  border-radius: 50%;
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.featured-dots button.active,
+.featured-dots button:hover {
+  background: var(--berry);
+  transform: scale(1.25);
+}
+
 .product-card,
 .recipe-card,
 .cart-panel,
