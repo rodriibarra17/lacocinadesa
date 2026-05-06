@@ -452,6 +452,34 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 
+.category-filter {
+  width: min(1080px, 100%);
+  margin: -10px auto 30px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.category-filter button {
+  min-height: 42px;
+  padding: 0 16px;
+  color: var(--berry);
+  background: #fff2ef;
+  border: 1px solid rgba(121, 56, 68, 0.14);
+  border-radius: 999px;
+  font-weight: 900;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.category-filter button:hover,
+.category-filter button.active {
+  color: var(--white);
+  background: var(--berry);
+  box-shadow: 0 12px 28px rgba(121, 56, 68, 0.18);
+  transform: translateY(-2px);
+}
+
 .products-grid {
   width: min(1200px, 100%);
   margin: 0 auto;

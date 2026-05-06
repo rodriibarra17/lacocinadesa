@@ -208,33 +208,44 @@ function App() {
 
   const favoriteProducts = products.filter((product) => product.favorite).slice(0, 3);
   const productCategories = getProductCategories(products);
-  const routeCategory = getCategoryFromPath(route);
+  const page = getPageFromPath(route);
+  const routeCategory = getProductCategoryFromPath(route);
   const selectedCategory = routeCategory || "Todos";
   const visibleProducts = !routeCategory
     ? products
-    : products.filter((product) => product.category === routeCategory);
+    : products.filter((product) => categoryToSlug(product.category) === categoryToSlug(routeCategory));
   const productsTitle = routeCategory ? routeCategory : "Productos";
 
   return (
     <>
       <Navbar
         navigate={navigate}
-        categories={productCategories}
-        selectedCategory={selectedCategory}
+        activePage={page}
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
       />
       <main>
-        <Hero content={siteContent} />
-        <Featured products={favoriteProducts.length ? favoriteProducts : products.slice(0, 3)} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
-        <About content={siteContent} />
-        <ProductsCarousel
-          products={visibleProducts}
-          onAdd={addToCart}
-          onSelect={setSelectedProduct}
-          content={{ ...siteContent, productsTitle, productsEyebrow: "Pasteleria artesanal" }}
-        />
-        <Recipes recipes={recipes} content={siteContent} onSelect={setSelectedRecipe} />
-        <SocialSection content={siteContent} brandSettings={brandSettings} />
+        {page === "home" && (
+          <>
+            <Hero content={siteContent} navigate={navigate} />
+            <Featured products={favoriteProducts.length ? favoriteProducts : products.slice(0, 3)} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
+            <About content={siteContent} />
+            <SocialSection content={siteContent} brandSettings={brandSettings} />
+          </>
+        )}
+        {page === "products" && (
+          <ProductsCarousel
+            products={visibleProducts}
+            categories={productCategories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={(category) => navigate(category === "Todos" ? "/productos" : `/productos/${categoryToSlug(category)}`)}
+            onAdd={addToCart}
+            onSelect={setSelectedProduct}
+            content={{ ...siteContent, productsTitle, productsEyebrow: "Pasteleria artesanal" }}
+          />
+        )}
+        {page === "recipes" && <Recipes recipes={recipes} content={siteContent} onSelect={setSelectedRecipe} />}
+        {page === "about" && <About content={siteContent} />}
+        {page === "social" && <SocialSection content={siteContent} brandSettings={brandSettings} />}
         <Cart cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} brandSettings={brandSettings} />
       </main>
       <Footer content={siteContent} brandSettings={brandSettings} />
@@ -268,11 +279,15 @@ function Logo({ footer = false }) {
   );
 }
 
-function Navbar({ navigate, categories, selectedCategory, cartCount }) {
+function Navbar({ navigate, activePage, cartCount }) {
   const [logoClicks, setLogoClicks] = useState(0);
-  const visibleCategories = categories.slice(0, 5);
-  const hiddenCategories = categories.slice(5);
-  const isMoreActive = hiddenCategories.includes(selectedCategory);
+  const navItems = [
+    { label: "Home", path: "/", page: "home" },
+    { label: "Productos", path: "/productos", page: "products" },
+    { label: "Recetas", path: "/recetas", page: "recipes" },
+    { label: "Sobre mi", path: "/sobre-mi", page: "about" },
+    { label: "Redes", path: "/redes", page: "social" }
+  ];
 
   function handleBrandClick() {
     setLogoClicks((current) => {
@@ -296,42 +311,23 @@ function Navbar({ navigate, categories, selectedCategory, cartCount }) {
         </span>
       </button>
       <nav>
-        <button className={selectedCategory === "Todos" ? "nav-active" : ""} onClick={() => navigate("/")} type="button">Home</button>
-        {visibleCategories.map((category) => (
+        {navItems.map((item) => (
           <button
-            key={category}
-            className={selectedCategory === category ? "nav-active" : ""}
-            onClick={() => navigate(`/${categoryToSlug(category)}`)}
+            key={item.path}
+            className={activePage === item.page ? "nav-active" : ""}
+            onClick={() => navigate(item.path)}
             type="button"
           >
-            {category}
+            {item.label}
           </button>
         ))}
-        {hiddenCategories.length > 0 && (
-          <details className={isMoreActive ? "more-menu nav-active" : "more-menu"}>
-            <summary>Mas</summary>
-            <div>
-              {hiddenCategories.map((category) => (
-                <button
-                  key={category}
-                  className={selectedCategory === category ? "nav-active" : ""}
-                  onClick={() => navigate(`/${categoryToSlug(category)}`)}
-                  type="button"
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-          </details>
-        )}
-        <a href="#redes">Redes</a>
       </nav>
-      <a className="cart-pill" href="#pedido">Carrito {cartCount > 0 ? `(${cartCount})` : ""}</a>
+      <button className="cart-pill" onClick={scrollToCart} type="button">Carrito {cartCount > 0 ? `(${cartCount})` : ""}</button>
     </header>
   );
 }
 
-function Hero({ content }) {
+function Hero({ content, navigate }) {
   return (
     <section id="home" className="hero">
       <img src="https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=1800&q=88" alt="Torta artesanal decorada" />
@@ -340,8 +336,8 @@ function Hero({ content }) {
         <h1>{content.heroTitle}</h1>
         <p>{content.heroText}</p>
         <div className="actions">
-          <a className="primary" href="#productos">Ver productos</a>
-          <a className="secondary" href="#pedido">Armar pedido</a>
+          <button className="primary" onClick={() => navigate("/productos")} type="button">Ver productos</button>
+          <button className="secondary" onClick={scrollToCart} type="button">Armar pedido</button>
         </div>
       </div>
     </section>
@@ -377,10 +373,22 @@ function About({ content }) {
   );
 }
 
-function ProductsCarousel({ products, onAdd, onSelect, content }) {
+function ProductsCarousel({ products, categories, selectedCategory, onCategoryChange, onAdd, onSelect, content }) {
   return (
     <section id="productos" className="section products-section">
       <SectionTitle eyebrow={content.productsEyebrow} title={content.productsTitle} />
+      <div className="category-filter" aria-label="Filtrar productos por categoria">
+        {["Todos", ...categories].map((category) => (
+          <button
+            key={category}
+            className={selectedCategory === category ? "active" : ""}
+            onClick={() => onCategoryChange(category)}
+            type="button"
+          >
+            {category}
+          </button>
+        ))}
+      </div>
       {products.length === 0 ? (
         <p className="empty-cart product-empty">No hay productos en esta categoria.</p>
       ) : (
@@ -1028,10 +1036,24 @@ function categoryToSlug(category) {
     .replace(/^-+|-+$/g, "");
 }
 
-function getCategoryFromPath(path) {
-  const segment = String(path || "/").split("/").filter(Boolean)[0];
-  if (!segment || segment === "admin") return "";
-  return normalizeCategory(decodeURIComponent(segment).replace(/-/g, " "));
+function scrollToCart() {
+  document.getElementById("pedido")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function getPageFromPath(path) {
+  const [section] = String(path || "/").split("/").filter(Boolean);
+  if (!section) return "home";
+  if (section === "productos") return "products";
+  if (section === "recetas") return "recipes";
+  if (section === "sobre-mi") return "about";
+  if (section === "redes") return "social";
+  return "home";
+}
+
+function getProductCategoryFromPath(path) {
+  const [section, category] = String(path || "/").split("/").filter(Boolean);
+  if (section !== "productos" || !category) return "";
+  return normalizeCategory(decodeURIComponent(category).replace(/-/g, " "));
 }
 
 function normalizeRecipes(recipes) {
