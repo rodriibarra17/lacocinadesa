@@ -229,6 +229,7 @@ function App() {
           <>
             <Hero content={siteContent} navigate={navigate} />
             <Featured products={homeProducts} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
+            <AllProductsPreview products={products} onAdd={addToCart} onSelect={setSelectedProduct} />
             <About content={siteContent} />
             <SocialSection content={siteContent} brandSettings={brandSettings} />
           </>
@@ -346,44 +347,108 @@ function Hero({ content, navigate }) {
 }
 
 function Featured({ products, onAdd, onSelect, content }) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (products.length <= 1) return undefined;
-    const interval = window.setInterval(() => {
-      setIndex((current) => (current + 1) % products.length);
-    }, 3500);
-    return () => window.clearInterval(interval);
-  }, [products.length]);
-
-  useEffect(() => {
-    setIndex(0);
-  }, [products]);
-
   return (
     <section className="section featured">
       <SectionTitle eyebrow={content.featuredEyebrow} title={content.featuredTitle} />
-      <div className="featured-carousel" aria-label="Productos destacados">
-        <div className="featured-track" style={{ transform: `translateX(-${index * 100}%)` }}>
-          {products.map((product) => (
-            <div className="featured-slide" key={product.id}>
+      <ProductSlider products={products} onAdd={onAdd} onSelect={onSelect} visibleCount={3} />
+    </section>
+  );
+}
+
+function AllProductsPreview({ products, onAdd, onSelect }) {
+  return (
+    <section className="section home-all-products">
+      <SectionTitle eyebrow="Pasteleria artesanal" title="Todos los productos" />
+      <ProductSlider products={products} onAdd={onAdd} onSelect={onSelect} visibleCount={4} />
+    </section>
+  );
+}
+
+function ProductSlider({ products, onAdd, onSelect, visibleCount = 3 }) {
+  const [index, setIndex] = useState(0);
+  const [withTransition, setWithTransition] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const effectiveVisibleCount = Math.min(visibleCount, Math.max(products.length, 1));
+  const shouldLoop = products.length > effectiveVisibleCount;
+  const sliderProducts = shouldLoop ? [...products, ...products.slice(0, effectiveVisibleCount)] : products;
+
+  useEffect(() => {
+    if (!shouldLoop || paused) return undefined;
+    const interval = window.setInterval(() => {
+      setWithTransition(true);
+      setIndex((current) => current + 1);
+    }, 3500);
+    return () => window.clearInterval(interval);
+  }, [paused, shouldLoop]);
+
+  useEffect(() => {
+    setIndex(0);
+    setWithTransition(true);
+  }, [products]);
+
+  useEffect(() => {
+    if (!shouldLoop || index !== products.length) return undefined;
+    const reset = window.setTimeout(() => {
+      setWithTransition(false);
+      setIndex(0);
+    }, 620);
+    return () => window.clearTimeout(reset);
+  }, [index, products.length, shouldLoop]);
+
+  return (
+    <>
+      <div
+        className="product-slider"
+        style={{ "--visible-count": effectiveVisibleCount }}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        aria-label="Carrusel de productos"
+      >
+        <div
+          className="product-slider-track"
+          style={{
+            "--slider-index": index,
+            transition: withTransition ? "transform 0.6s ease-in-out" : "none"
+          }}
+        >
+          {sliderProducts.map((product, slideIndex) => (
+            <div className="product-slider-slide" key={`${product.id}-${slideIndex}`}>
               <ProductCard product={product} onAdd={onAdd} onSelect={onSelect} />
             </div>
           ))}
         </div>
       </div>
-      <div className="featured-dots" aria-label="Controles del carrusel">
+      {products.length > 1 && <div className="slider-controls" aria-label="Controles del carrusel">
+        <button
+          type="button"
+          onClick={() => {
+            setWithTransition(true);
+            setIndex((current) => Math.max(0, current - 1));
+          }}
+          aria-label="Producto anterior"
+        >‹</button>
         {products.map((product, dotIndex) => (
           <button
             key={product.id}
-            className={dotIndex === index ? "active" : ""}
-            onClick={() => setIndex(dotIndex)}
+            className={dotIndex === index % products.length ? "active dot" : "dot"}
+            onClick={() => {
+              setWithTransition(true);
+              setIndex(dotIndex);
+            }}
             type="button"
             aria-label={`Ver producto destacado ${dotIndex + 1}`}
           />
         ))}
-      </div>
-    </section>
+        <button
+          type="button"
+          onClick={() => {
+            setWithTransition(true);
+            setIndex((current) => current + 1);
+          }}
+          aria-label="Producto siguiente"
+        >›</button>
+      </div>}
+    </>
   );
 }
 
@@ -422,11 +487,7 @@ function ProductsCarousel({ products, categories, selectedCategory, onCategoryCh
       {products.length === 0 ? (
         <p className="empty-cart product-empty">No hay productos en esta categoria.</p>
       ) : (
-        <div className="products-grid">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} onAdd={onAdd} onSelect={onSelect} />
-          ))}
-        </div>
+        <ProductSlider products={products} onAdd={onAdd} onSelect={onSelect} visibleCount={4} />
       )}
     </section>
   );
