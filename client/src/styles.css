@@ -88,6 +88,7 @@ button { cursor: pointer; }
 
 .navbar nav {
   display: flex;
+  align-items: center;
   gap: clamp(12px, 2vw, 28px);
   font-size: 14px;
   font-weight: 800;
@@ -113,6 +114,62 @@ button { cursor: pointer; }
 
 .navbar nav button.nav-active {
   font-weight: 900;
+}
+
+.more-menu {
+  position: relative;
+}
+
+.more-menu summary {
+  list-style: none;
+  padding: 8px 0;
+  color: var(--cocoa);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease;
+}
+
+.more-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.more-menu summary::after {
+  content: " v";
+  font-size: 11px;
+}
+
+.more-menu:hover summary,
+.more-menu.nav-active summary {
+  color: var(--berry);
+  border-color: var(--rose);
+}
+
+.more-menu div {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 50;
+  min-width: 180px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 253, 249, 0.98);
+  border: 1px solid rgba(189, 150, 88, 0.22);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.more-menu div button {
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 0;
+  border-radius: 10px;
+}
+
+.more-menu div button:hover,
+.more-menu div button.nav-active {
+  background: #fff2ef;
 }
 
 .cart-pill,

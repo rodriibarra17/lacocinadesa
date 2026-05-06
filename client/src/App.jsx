@@ -70,7 +70,7 @@ function App() {
 
   function navigate(path) {
     window.history.pushState({}, "", path);
-    setRoute(path);
+    window.dispatchEvent(new Event("popstate"));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -270,6 +270,9 @@ function Logo({ footer = false }) {
 
 function Navbar({ navigate, categories, selectedCategory, cartCount }) {
   const [logoClicks, setLogoClicks] = useState(0);
+  const visibleCategories = categories.slice(0, 5);
+  const hiddenCategories = categories.slice(5);
+  const isMoreActive = hiddenCategories.includes(selectedCategory);
 
   function handleBrandClick() {
     setLogoClicks((current) => {
@@ -294,7 +297,7 @@ function Navbar({ navigate, categories, selectedCategory, cartCount }) {
       </button>
       <nav>
         <button className={selectedCategory === "Todos" ? "nav-active" : ""} onClick={() => navigate("/")} type="button">Home</button>
-        {categories.map((category) => (
+        {visibleCategories.map((category) => (
           <button
             key={category}
             className={selectedCategory === category ? "nav-active" : ""}
@@ -304,6 +307,23 @@ function Navbar({ navigate, categories, selectedCategory, cartCount }) {
             {category}
           </button>
         ))}
+        {hiddenCategories.length > 0 && (
+          <details className={isMoreActive ? "more-menu nav-active" : "more-menu"}>
+            <summary>Mas</summary>
+            <div>
+              {hiddenCategories.map((category) => (
+                <button
+                  key={category}
+                  className={selectedCategory === category ? "nav-active" : ""}
+                  onClick={() => navigate(`/${categoryToSlug(category)}`)}
+                  type="button"
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </details>
+        )}
         <a href="#redes">Redes</a>
       </nav>
       <a className="cart-pill" href="#pedido">Carrito {cartCount > 0 ? `(${cartCount})` : ""}</a>
