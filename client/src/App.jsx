@@ -364,91 +364,22 @@ function AllProductsPreview({ products, onAdd, onSelect }) {
   );
 }
 
-function ProductSlider({ products, onAdd, onSelect, visibleCount = 3 }) {
-  const [index, setIndex] = useState(0);
-  const [withTransition, setWithTransition] = useState(true);
-  const [paused, setPaused] = useState(false);
-  const effectiveVisibleCount = Math.min(visibleCount, Math.max(products.length, 1));
-  const shouldLoop = products.length > effectiveVisibleCount;
-  const sliderProducts = shouldLoop ? [...products, ...products.slice(0, effectiveVisibleCount)] : products;
-
-  useEffect(() => {
-    if (!shouldLoop || paused) return undefined;
-    const interval = window.setInterval(() => {
-      setWithTransition(true);
-      setIndex((current) => current + 1);
-    }, 3500);
-    return () => window.clearInterval(interval);
-  }, [paused, shouldLoop]);
-
-  useEffect(() => {
-    setIndex(0);
-    setWithTransition(true);
-  }, [products]);
-
-  useEffect(() => {
-    if (!shouldLoop || index !== products.length) return undefined;
-    const reset = window.setTimeout(() => {
-      setWithTransition(false);
-      setIndex(0);
-    }, 620);
-    return () => window.clearTimeout(reset);
-  }, [index, products.length, shouldLoop]);
+function ProductSlider({ products, onAdd, onSelect }) {
+  const baseProducts = products.length < 4
+    ? [...products, ...products, ...products, ...products]
+    : products;
+  const loopProducts = [...baseProducts, ...baseProducts];
 
   return (
-    <>
-      <div
-        className="product-slider"
-        style={{ "--visible-count": effectiveVisibleCount }}
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        aria-label="Carrusel de productos"
-      >
-        <div
-          className="product-slider-track"
-          style={{
-            "--slider-index": index,
-            transition: withTransition ? "transform 0.6s ease-in-out" : "none"
-          }}
-        >
-          {sliderProducts.map((product, slideIndex) => (
-            <div className="product-slider-slide" key={`${product.id}-${slideIndex}`}>
-              <ProductCard product={product} onAdd={onAdd} onSelect={onSelect} />
-            </div>
-          ))}
-        </div>
-      </div>
-      {products.length > 1 && <div className="slider-controls" aria-label="Controles del carrusel">
-        <button
-          type="button"
-          onClick={() => {
-            setWithTransition(true);
-            setIndex((current) => Math.max(0, current - 1));
-          }}
-          aria-label="Producto anterior"
-        >‹</button>
-        {products.map((product, dotIndex) => (
-          <button
-            key={product.id}
-            className={dotIndex === index % products.length ? "active dot" : "dot"}
-            onClick={() => {
-              setWithTransition(true);
-              setIndex(dotIndex);
-            }}
-            type="button"
-            aria-label={`Ver producto destacado ${dotIndex + 1}`}
-          />
+    <div className="product-slider marquee" aria-label="Carrusel infinito de productos">
+      <div className="product-slider-track">
+        {loopProducts.map((product, slideIndex) => (
+          <div className="product-slider-slide" key={`${product.id}-${slideIndex}`}>
+            <ProductCard product={product} onAdd={onAdd} onSelect={onSelect} />
+          </div>
         ))}
-        <button
-          type="button"
-          onClick={() => {
-            setWithTransition(true);
-            setIndex((current) => current + 1);
-          }}
-          aria-label="Producto siguiente"
-        >›</button>
-      </div>}
-    </>
+      </div>
+    </div>
   );
 }
 
