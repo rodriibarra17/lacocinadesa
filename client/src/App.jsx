@@ -9,6 +9,13 @@ const RECIPES_KEY = "sa_recipes";
 const CONTENT_KEY = "sa_site_content";
 const BRAND_KEY = "sa_brand_settings";
 const ADMIN_KEY = "sa_admin_logged";
+const predefinedCategories = [
+  "Tortas",
+  "Budines",
+  "Cookies",
+  "Salado",
+  "Otros"
+];
 
 function App() {
   const [route, setRoute] = useState(window.location.pathname);
@@ -199,6 +206,13 @@ function App() {
   }
 
   const favoriteProducts = products.filter((product) => product.favorite).slice(0, 3);
+  const productCategories = getProductCategories(products);
+  const routeCategory = getCategoryFromPath(route);
+  const selectedCategory = routeCategory || "Todos";
+  const visibleProducts = !routeCategory
+    ? products
+    : products.filter((product) => product.category === routeCategory);
+  const productsTitle = routeCategory ? `${siteContent.productsTitle}: ${routeCategory}` : siteContent.productsTitle;
 
   return (
     <>
@@ -207,7 +221,15 @@ function App() {
         <Hero content={siteContent} />
         <Featured products={favoriteProducts.length ? favoriteProducts : products.slice(0, 3)} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
         <About content={siteContent} />
-        <ProductsCarousel products={products} onAdd={addToCart} onSelect={setSelectedProduct} content={siteContent} />
+        <ProductsCarousel
+          products={visibleProducts}
+          categories={productCategories}
+          selectedCategory={selectedCategory}
+          onCategoryChange={(category) => navigate(category === "Todos" ? "/" : `/${categoryToSlug(category)}`)}
+          onAdd={addToCart}
+          onSelect={setSelectedProduct}
+          content={{ ...siteContent, productsTitle }}
+        />
         <Recipes recipes={recipes} content={siteContent} onSelect={setSelectedRecipe} />
         <SocialSection content={siteContent} brandSettings={brandSettings} />
         <Cart cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} brandSettings={brandSettings} />
@@ -325,19 +347,35 @@ function About({ content }) {
   );
 }
 
-function ProductsCarousel({ products, onAdd, onSelect, content }) {
+function ProductsCarousel({ products, categories, selectedCategory, onCategoryChange, onAdd, onSelect, content }) {
   const carouselProducts = [...products, ...products];
 
   return (
     <section id="productos" className="section products-section">
       <SectionTitle eyebrow={content.productsEyebrow} title={content.productsTitle} />
-      <div className="carousel-shell" aria-label="Carrusel de productos">
-        <div className="carousel-track">
-          {carouselProducts.map((product, index) => (
-            <ProductCard key={`${product.id}-${index}`} product={product} onAdd={onAdd} onSelect={onSelect} carousel />
-          ))}
-        </div>
+      <div className="category-filter" aria-label="Filtrar productos por categoria">
+        {["Todos", ...categories].map((category) => (
+          <button
+            key={category}
+            className={selectedCategory === category ? "active" : ""}
+            onClick={() => onCategoryChange(category)}
+            type="button"
+          >
+            {category}
+          </button>
+        ))}
       </div>
+      {products.length === 0 ? (
+        <p className="empty-cart product-empty">No hay productos en esta categoria.</p>
+      ) : (
+        <div className="carousel-shell" aria-label="Carrusel de productos">
+          <div className="carousel-track">
+            {carouselProducts.map((product, index) => (
+              <ProductCard key={`${product.id}-${index}`} product={product} onAdd={onAdd} onSelect={onSelect} carousel />
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -350,6 +388,7 @@ function ProductCard({ product, onAdd, onSelect, carousel = false }) {
         <img src={product.image_url} alt={product.name} loading="lazy" />
       </button>
       <div className="product-copy">
+        <em>{product.category}</em>
         <span>{formatPrice(product.price)}</span>
         <h3>{product.name}</h3>
         <p>{product.description}</p>
@@ -619,7 +658,7 @@ function AdminLogin({ setIsLogged }) {
 }
 
 function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, onToggleFavorite, recipes, setRecipes, siteContent, setSiteContent, brandSettings, setBrandSettings }) {
-  const emptyProduct = { name: "", price: "", description: "", image_url: "", favorite: false };
+  const emptyProduct = { name: "", price: "", description: "", category: "Tortas", customCategory: "", image_url: "", favorite: false };
   const emptyRecipe = { title: "", content: "", ingredients: "", steps: "", image_url: "" };
   const [productForm, setProductForm] = useState(emptyProduct);
   const [recipeForm, setRecipeForm] = useState(emptyRecipe);
@@ -634,9 +673,13 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
       return;
     }
     setProductFormError("");
+    const category = normalizeCategory(productForm.customCategory || productForm.category);
     const payload = {
-      ...productForm,
+      name: productForm.name,
       price: Number(productForm.price || 0),
+      description: productForm.description,
+      image_url: productForm.image_url,
+      category,
       favorite: Boolean(productForm.favorite)
     };
     const saved = await onSaveProduct(payload, editingProductId);
@@ -648,8 +691,15 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
   }
 
   function editProduct(product) {
+    const category = normalizeCategory(product.category);
+    const isPredefined = predefinedCategories.includes(category);
     setEditingProductId(product.id);
-    setProductForm({ ...product, price: String(product.price || "") });
+    setProductForm({
+      ...product,
+      price: String(product.price || ""),
+      category: isPredefined ? category : "Otros",
+      customCategory: isPredefined ? "" : category
+    });
   }
 
   function deleteProduct(id) {
@@ -701,6 +751,24 @@ function AdminEditor({ products, productStatus, onSaveProduct, onDeleteProduct, 
           <label>Nombre<input value={productForm.name} onChange={(e) => setProductForm({ ...productForm, name: e.target.value })} required /></label>
           <label>Precio<input value={productForm.price} onChange={(e) => setProductForm({ ...productForm, price: e.target.value })} type="number" required /></label>
           <label>Descripcion<textarea value={productForm.description} onChange={(e) => setProductForm({ ...productForm, description: e.target.value })} required /></label>
+          <div className="category-admin-grid">
+            <label>
+              Categoria
+              <select value={productForm.category} onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}>
+                {predefinedCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Categoria personalizada
+              <input
+                value={productForm.customCategory}
+                onChange={(e) => setProductForm({ ...productForm, customCategory: e.target.value })}
+                placeholder="Opcional"
+              />
+            </label>
+          </div>
           <ImageInput label="Imagen" value={productForm.image_url} onChange={(image_url) => setProductForm({ ...productForm, image_url })} />
           <label className="check-line"><input type="checkbox" checked={productForm.favorite} onChange={(e) => setProductForm({ ...productForm, favorite: e.target.checked })} /> Marcar como favorito</label>
           {productFormError && <p className="error">{productFormError}</p>}
@@ -851,6 +919,7 @@ function mapSupabaseProduct(product) {
     price: Number(product.price || 0),
     description: product.description || "",
     image_url: product.image || product.image_url || "",
+    category: normalizeCategory(product.category),
     favorite: Boolean(product.favorite)
   };
 }
@@ -860,7 +929,8 @@ function productToSupabase(product, includeFavorite = true) {
     name: product.name,
     price: Number(product.price || 0),
     description: product.description,
-    image: product.image_url
+    image: product.image_url,
+    category: normalizeCategory(product.category)
   };
 
   if (includeFavorite) {
@@ -917,7 +987,37 @@ function normalizeLines(value, fallback = []) {
 }
 
 function normalizeProducts(products) {
-  return products.map((product) => ({ ...product, favorite: Boolean(product.favorite) }));
+  return products.map((product) => ({
+    ...product,
+    category: normalizeCategory(product.category),
+    favorite: Boolean(product.favorite)
+  }));
+}
+
+function normalizeCategory(value) {
+  const category = String(value || "Otros").trim();
+  if (!category) return "Otros";
+  return category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+}
+
+function getProductCategories(products) {
+  const detected = products.map((product) => normalizeCategory(product.category));
+  return [...new Set(detected)].sort((first, second) => first.localeCompare(second, "es"));
+}
+
+function categoryToSlug(category) {
+  return normalizeCategory(category)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getCategoryFromPath(path) {
+  const segment = String(path || "/").split("/").filter(Boolean)[0];
+  if (!segment || segment === "admin") return "";
+  return normalizeCategory(decodeURIComponent(segment).replace(/-/g, " "));
 }
 
 function normalizeRecipes(recipes) {
